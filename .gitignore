@@ -1,0 +1,5 @@
+dist/
+voobly.egg-info/
+.tox/
+*.sqlite
+*.pyc
