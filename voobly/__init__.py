@@ -13,6 +13,7 @@ from requests.auth import AuthBase
 from requests.exceptions import RequestException
 import requests_cache
 import tablib
+from tablib.core import UnsupportedFormat
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,11 +48,16 @@ def _make_request(session, url, argument=None, params=None, raw=False):
         raise VooblyError('connection problem')
     if resp.text == 'bad-key':
         raise VooblyError('bad api key')
-    if not resp.text:
+    elif resp.text == 'too-busy':
+        raise VooblyError('service too busy')
+    elif not resp.text:
         raise VooblyError('no data returned')
     if raw:
         return resp.text
-    return tablib.Dataset().load(resp.text).dict
+    try:
+        return tablib.Dataset().load(resp.text).dict
+    except UnsupportedFormat:
+        raise VooblyError('unexpected error {}'.format(resp.text))
 
 
 # pylint: disable=too-many-arguments
