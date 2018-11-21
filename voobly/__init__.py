@@ -235,7 +235,7 @@ def authenticated(function):
 
 
 @authenticated
-def match(session, match_id):
+def get_match(session, match_id):
     """Get match metadata."""
     url = '{}/{}'.format(MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)

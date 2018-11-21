@@ -47,6 +47,12 @@ results = voobly.find_users(session, "TheViper", "MBLAoC")  # returns list
 profile = voobly.get_user(session, 123211439)
 profile = voobly.get_user(session, "TheViper") # same result
 
+# Get match information
+match = voobly.get_match(session, 18786853)  # match id (last portion of URL), returns time played and rec links
+
+# Download rec
+filename = voobly.download_rec(session, "/files/view/50168753/9ogc...", "/save/to") # retrieve path from `get_match`
+
 # The following methods are helpers built from the previous.
 
 # Get a user profile & ladder info based on username
