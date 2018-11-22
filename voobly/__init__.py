@@ -47,6 +47,8 @@ USER_URL = 'user/'
 VALIDATE_URL = 'validate'
 LADDER_RESULT_LIMIT = 40
 METADATA_PATH = 'metadata'
+SCRAPE_FETCH_ERROR = 'Page Access Failed'
+SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
 
 
 def get_metadata_path(name):
@@ -106,7 +108,9 @@ def _make_request(session, url, argument=None, params=None, raw=False):
 def make_scrape_request(session, url):
     """Make a request to URL."""
     html = session.get(url)
-    if html.status_code != 200:
+    if SCRAPE_FETCH_ERROR in html.text:
+        raise VooblyError('not logged in')
+    if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
         raise VooblyError('page not found')
     return bs4.BeautifulSoup(html.text, features='html.parser')
 
@@ -229,7 +233,7 @@ def authenticated(function):
             return function(*args)
         except VooblyError:
             _LOGGER.info("attempted to access page before login")
-            _login(args[0])
+            login(args[0])
             return function(*args)
     return wrapped
 
@@ -263,7 +267,7 @@ def download_rec(session, rec_url, target_path):
 
 def login(session):
     """Login to Voobly."""
-    if not session.auth.username or session.auth.password:
+    if not session.auth.username or not session.auth.password:
         raise VooblyError('must supply username and password')
     _LOGGER.info("logging in (no valid cookie found)")
     session.cookies.clear()
