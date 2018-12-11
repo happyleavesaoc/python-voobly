@@ -49,6 +49,8 @@ LADDER_RESULT_LIMIT = 40
 METADATA_PATH = 'metadata'
 SCRAPE_FETCH_ERROR = 'Page Access Failed'
 SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
+MATCH_NEW_RATE = 'New Rating:'
+MATCH_DATE_PLAYED = 'Date Played:'
 
 
 def get_metadata_path(name):
@@ -243,16 +245,32 @@ def get_match(session, match_id):
     """Get match metadata."""
     url = '{}/{}'.format(MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
-    date_played = parsed.find(text='Date Played:').find_next('td').text
-    recs = []
+    date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
+    players = []
     for rec in parsed.find_all('a', href=re.compile('^/files/view')):
-        recs.append({
+        name = rec.find('b').text
+        user = parsed.find('a', text=name)
+        user_id = int(user['href'].split('/')[-1])
+        children = list(user.find_next('span').children)
+        rate_after = None
+        rate_before = None
+        if str(children[0]).strip() == MATCH_NEW_RATE:
+            rate_after = int(children[1].text)
+            rate_before = rate_after - int(children[3].text)
+        elif str(children[4]).strip() == MATCH_NEW_RATE:
+            rate_after = int(children[5].text)
+            rate_before = rate_after - int(children[3].text)
+        players.append({
             'url': rec['href'],
-            'player': rec.find('b').text
+            'id': user_id,
+            'name': name,
+            'number': None,
+            'rate_before': rate_before,
+            'rate_after': rate_after
         })
     return {
         'timestamp': dateparser.parse(date_played),
-        'recs': recs
+        'players': players
     }
 
 
