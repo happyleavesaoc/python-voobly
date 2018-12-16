@@ -39,6 +39,7 @@ VOOBLY_API_URL = BASE_URL + '/api/'
 LOGIN_PAGE = BASE_URL + '/login'
 LOGIN_URL = BASE_URL + '/login/auth'
 MATCH_URL = BASE_URL + '/match/view'
+PROFILE_PATH = '/profile/view'
 FIND_USER_URL = 'finduser/'
 FIND_USERS_URL = 'findusers/'
 LOBBY_URL = 'lobbies/'
@@ -51,6 +52,16 @@ SCRAPE_FETCH_ERROR = 'Page Access Failed'
 SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
 MATCH_NEW_RATE = 'New Rating:'
 MATCH_DATE_PLAYED = 'Date Played:'
+COLOR_MAPPING = {
+    '#0054A6': 0,
+    '#FF0000': 1,
+    '#00A651': 2,
+    '#FFFF00': 3,
+    '#00FFFF': 4,
+    '#92278F': 5,
+    '#C0C0C0': 6,
+    '#FF8000': 7
+}
 
 
 def get_metadata_path(name):
@@ -173,7 +184,6 @@ def get_user(session, user_id):
     resp = _make_request(session, USER_URL, user_id)
     if not resp:
         raise VooblyError('user id not found')
-    return resp[0]
 
 
 def find_user(session, username):
@@ -181,7 +191,10 @@ def find_user(session, username):
     resp = _make_request(session, FIND_USER_URL, username)
     if not resp:
         raise VooblyError('user not found')
-    return resp[0]['uid']
+    try:
+        return int(resp[0]['uid'])
+    except ValueError:
+        raise VooblyError('user not found')
 
 
 def find_users(session, *usernames):
@@ -247,9 +260,21 @@ def get_match(session, match_id):
     parsed = make_scrape_request(session, url)
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
-    for rec in parsed.find_all('a', href=re.compile('^/files/view')):
-        name = rec.find('b').text
-        user = parsed.find('a', text=name)
+    colors = {}
+    for div in parsed.findAll('div', style=True):
+        if div['style'].startswith('background-color:'):
+            name = div.find_next('a', href=re.compile(PROFILE_PATH)).text
+            color = div['style'].split(':')[1].split(';')[0].strip()
+            colors[name] = color
+
+    for i, rec in enumerate(parsed.find_all('a', href=re.compile('^/files/view'))):
+        player_name = rec.find('b').text
+        username = player_name.split(']')[-1]
+        clan = player_name.split(']')[0][1:] if player_name.find(']') > 0 else None
+        user = parsed.find('a', text=username)
+        if not user:
+            # bugged match page
+            continue
         user_id = int(user['href'].split('/')[-1])
         children = list(user.find_next('span').children)
         rate_after = None
@@ -263,8 +288,9 @@ def get_match(session, match_id):
         players.append({
             'url': rec['href'],
             'id': user_id,
-            'name': name,
-            'number': None,
+            'username': username,
+            'clan': clan,
+            'color_id': COLOR_MAPPING.get(colors[username]),
             'rate_before': rate_before,
             'rate_after': rate_after
         })
