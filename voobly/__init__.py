@@ -184,6 +184,7 @@ def get_user(session, user_id):
     resp = _make_request(session, USER_URL, user_id)
     if not resp:
         raise VooblyError('user id not found')
+    return resp[0]
 
 
 def find_user(session, username):
@@ -242,14 +243,15 @@ def ladders(session, game_id):
 
 def authenticated(function):
     """Re-authenticate if session expired."""
-    def wrapped(*args):
+    def wrapped(session, *args):
         """Wrap function."""
-        try:
-            return function(*args)
-        except VooblyError:
-            _LOGGER.info("attempted to access page before login")
-            login(args[0])
-            return function(*args)
+        with session.cache_disabled():
+            try:
+                return function(session, *args)
+            except VooblyError:
+                _LOGGER.info("attempted to access page before login")
+                login(session)
+                return function(session, *args)
     return wrapped
 
 
