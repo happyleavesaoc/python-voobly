@@ -39,6 +39,9 @@ VOOBLY_API_URL = BASE_URL + '/api/'
 LOGIN_PAGE = BASE_URL + '/login'
 LOGIN_URL = BASE_URL + '/login/auth'
 MATCH_URL = BASE_URL + '/match/view'
+LADDER_MATCHES_URL = BASE_URL + '/ladder/matches'
+LADDER_RANKING_URL = BASE_URL + '/ladder/ranking'
+PROFILE_URL = BASE_URL + '/profile/view'
 PROFILE_PATH = '/profile/view'
 FIND_USER_URL = 'finduser/'
 FIND_USERS_URL = 'findusers/'
@@ -52,6 +55,9 @@ SCRAPE_FETCH_ERROR = 'Page Access Failed'
 SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
 MATCH_NEW_RATE = 'New Rating:'
 MATCH_DATE_PLAYED = 'Date Played:'
+MAX_MATCH_PAGE_ID = 30
+MAX_LADDER_PAGE_ID = 60
+MAX_RANK_PAGE_ID = 30
 COLOR_MAPPING = {
     '#0054A6': 0,
     '#FF0000': 1,
@@ -125,7 +131,7 @@ def make_scrape_request(session, url):
         raise VooblyError('not logged in')
     if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
         raise VooblyError('page not found')
-    return bs4.BeautifulSoup(html.text, features='html.parser')
+    return bs4.BeautifulSoup(html.text, features='lxml')
 
 
 def lookup_ladder_id(name):
@@ -243,16 +249,105 @@ def ladders(session, game_id):
 
 def authenticated(function):
     """Re-authenticate if session expired."""
-    def wrapped(session, *args):
+    def wrapped(session, *args, **kwargs):
         """Wrap function."""
         with session.cache_disabled():
             try:
-                return function(session, *args)
+                return function(session, *args, **kwargs)
             except VooblyError:
                 _LOGGER.info("attempted to access page before login")
                 login(session)
-                return function(session, *args)
+                return function(session, *args, **kwargs)
     return wrapped
+
+
+@authenticated
+def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
+    page_id = 0
+    ranks = []
+    done = False
+    while not done and page_id < MAX_RANK_PAGE_ID:
+        url = '{}/{}/{}'.format(LADDER_RANKING_URL, lookup_ladder_id(ladder_id), page_id)
+        parsed = make_scrape_request(session, url)
+        for row in parsed.find(text='Ladder Players').find_next('table').find_all('tr')[1:]:
+            cols = row.find_all('td')
+            rank = int(cols[0].text)
+            if rank < start:
+                continue
+            elif rank > start + limit:
+                done = True
+                break
+            ranks.append({
+                'rank': rank,
+                'uid': int(cols[1].find_all('a')[-1]['href'].split('/')[-1]),
+                'display_name': ''.join(cols[1].find_all(text=True)).strip(),
+                'rating': int(cols[2].text),
+                'wins': int(cols[3].text),
+                'losses': int(cols[4].text),
+                'streak': int(cols[5].find('font').text)
+            })
+        page_id += 1
+    return ranks
+
+
+@authenticated
+def get_user_matches(session, user_id, from_timestamp=None):
+    """Get recently played user matches."""
+    if not from_timestamp:
+        day = datetime.datetime.today().date()
+        from_timestamp = datetime.datetime.combine(day, datetime.time(0, 0))
+    matches = []
+    page_id = 0
+    done = False
+    while not done and page_id < MAX_MATCH_PAGE_ID:
+        url = '{}/{}/Matches/games/matches/user/{}/0/{}'.format(PROFILE_URL, user_id, user_id, page_id)
+        parsed = make_scrape_request(session, url)
+        for row in parsed.find('table').find_all('tr')[1:]:
+            cols = row.find_all('td')
+            played_at = dateparser.parse(cols[2].text)
+            match_id = int(cols[5].find('a').text[1:])
+            has_rec = cols[6].find('a').find('img')
+            if not has_rec:
+                continue
+            if played_at < from_timestamp:
+                done = True
+                break
+            matches.append({
+                'timestamp': played_at,
+                'match_id': match_id
+            })
+        page_id += 1
+    return matches
+
+
+@authenticated
+def get_ladder_matches(session, ladder_id, from_timestamp=None):
+    """Get recently played ladder matches."""
+    if not from_timestamp:
+        day = datetime.datetime.today().date()
+        from_timestamp = datetime.datetime.combine(day, datetime.time(0, 0))
+    matches = []
+    page_id = 0
+    done = False
+    while not done and page_id < MAX_LADDER_PAGE_ID:
+        url = '{}/{}/{}'.format(LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id)
+        parsed = make_scrape_request(session, url)
+        for row in parsed.find(text='Recent Matches').find_next('table').find_all('tr')[1:]:
+            cols = row.find_all('td')
+            played_at = dateparser.parse(cols[0].text)
+            match_id = int(cols[1].find('a').text[1:])
+            has_rec = cols[4].find('a').find('img')
+            if not has_rec:
+                continue
+            if played_at < from_timestamp:
+                done = True
+                break
+            matches.append({
+                'timestamp': played_at,
+                'match_id': match_id
+            })
+        page_id += 1
+    return matches
 
 
 @authenticated
@@ -263,7 +358,7 @@ def get_match(session, match_id):
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
     colors = {}
-    for div in parsed.findAll('div', style=True):
+    for div in parsed.find_all('div', style=True):
         if div['style'].startswith('background-color:'):
             name = div.find_next('a', href=re.compile(PROFILE_PATH)).text
             color = div['style'].split(':')[1].split(';')[0].strip()
@@ -346,7 +441,7 @@ def get_session(key=None, username=None, password=None, cache=True,
 
     session = requests.session()
     if cache:
-        session = requests_cache.core.CachedSession(expire_after=cache_expiry)
+        session = requests_cache.core.CachedSession(expire_after=cache_expiry, backend='memory')
     session.auth = VooblyAuth(key, username, password, cookie_path)
     if os.path.exists(cookie_path):
         _LOGGER.info("cookie found at: %s", cookie_path)
