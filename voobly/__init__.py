@@ -58,6 +58,7 @@ MATCH_DATE_PLAYED = 'Date Played:'
 MAX_MATCH_PAGE_ID = 30
 MAX_LADDER_PAGE_ID = 60
 MAX_RANK_PAGE_ID = 30
+LADDER_MATCH_LIMIT = 10
 COLOR_MAPPING = {
     '#0054A6': 0,
     '#FF0000': 1,
@@ -294,8 +295,7 @@ def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
 def get_user_matches(session, user_id, from_timestamp=None):
     """Get recently played user matches."""
     if not from_timestamp:
-        day = datetime.datetime.today().date()
-        from_timestamp = datetime.datetime.combine(day, datetime.time(0, 0))
+        from_timestamp = datetime.datetime.now() - datetime.timedelta(days=1)
     matches = []
     page_id = 0
     done = False
@@ -321,14 +321,14 @@ def get_user_matches(session, user_id, from_timestamp=None):
 
 
 @authenticated
-def get_ladder_matches(session, ladder_id, from_timestamp=None):
+def get_ladder_matches(session, ladder_id, from_timestamp=None, limit=LADDER_MATCH_LIMIT):
     """Get recently played ladder matches."""
     if not from_timestamp:
-        day = datetime.datetime.today().date()
-        from_timestamp = datetime.datetime.combine(day, datetime.time(0, 0))
+        from_timestamp = datetime.datetime.now() - datetime.timedelta(days=1)
     matches = []
     page_id = 0
     done = False
+    i = 0
     while not done and page_id < MAX_LADDER_PAGE_ID:
         url = '{}/{}/{}'.format(LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id)
         parsed = make_scrape_request(session, url)
@@ -339,13 +339,14 @@ def get_ladder_matches(session, ladder_id, from_timestamp=None):
             has_rec = cols[4].find('a').find('img')
             if not has_rec:
                 continue
-            if played_at < from_timestamp:
+            if played_at < from_timestamp or i >= limit:
                 done = True
                 break
             matches.append({
                 'timestamp': played_at,
                 'match_id': match_id
             })
+            i += 1
         page_id += 1
     return matches
 
