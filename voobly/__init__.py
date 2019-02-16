@@ -48,6 +48,8 @@ FIND_USERS_URL = 'findusers/'
 LOBBY_URL = 'lobbies/'
 LADDER_URL = 'ladder/'
 USER_URL = 'user/'
+FRIENDS_URL = BASE_URL + '/friends'
+USER_SEARCH_URL = FRIENDS_URL + '/browse/Search/Search'
 VALIDATE_URL = 'validate'
 LADDER_RESULT_LIMIT = 40
 METADATA_PATH = 'metadata'
@@ -59,6 +61,7 @@ MAX_MATCH_PAGE_ID = 30
 MAX_LADDER_PAGE_ID = 60
 MAX_RANK_PAGE_ID = 30
 LADDER_MATCH_LIMIT = 10
+GAME_AOC = 'Age of Empires II: The Conquerors'
 COLOR_MAPPING = {
     '#0054A6': 0,
     '#FF0000': 1,
@@ -125,9 +128,9 @@ def _make_request(session, url, argument=None, params=None, raw=False):
         raise VooblyError('unexpected error {}'.format(resp.text))
 
 
-def make_scrape_request(session, url):
+def make_scrape_request(session, url, mode='get', data=None):
     """Make a request to URL."""
-    html = session.get(url)
+    html = session.request(mode, url, data=data)
     if SCRAPE_FETCH_ERROR in html.text:
         raise VooblyError('not logged in')
     if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
@@ -138,14 +141,14 @@ def make_scrape_request(session, url):
 def lookup_ladder_id(name):
     """Lookup ladder id based on name."""
     if name not in LADDERS:
-        raise VooblyError('could not find ladder id for "{}"'.format(name))
+        raise ValueError('could not find ladder id for "{}"'.format(name))
     return LADDERS[name]['id']
 
 
 def lookup_game_id(name):
     """Lookup game id based on name."""
     if name not in GAMES:
-        raise VooblyError('could not find game id for "{}"'.format(name))
+        raise ValueError('could not find game id for "{}"'.format(name))
     return GAMES[name]['id']
 
 
@@ -186,7 +189,9 @@ def get_lobbies(session, game_id):
 
 def get_user(session, user_id):
     """Get user."""
-    if isinstance(user_id, str):
+    try:
+        user_id = int(user_id)
+    except ValueError:
         user_id = find_user(session, user_id)
     resp = _make_request(session, USER_URL, user_id)
     if not resp:
@@ -217,9 +222,8 @@ def validate_key(session):
     return resp == 'valid-key'
 
 
-def user(session, username, ladder_ids=None):
+def user(session, uid, ladder_ids=None):
     """Get all possible user info by name."""
-    uid = find_user(session, username)
     data = get_user(session, uid)
     resp = dict(data)
     if not ladder_ids:
@@ -252,14 +256,67 @@ def authenticated(function):
     """Re-authenticate if session expired."""
     def wrapped(session, *args, **kwargs):
         """Wrap function."""
-        with session.cache_disabled():
-            try:
-                return function(session, *args, **kwargs)
-            except VooblyError:
+        try:
+            return function(session, *args, **kwargs)
+        except VooblyError:
+            with session.cache_disabled():
                 _LOGGER.info("attempted to access page before login")
                 login(session)
                 return function(session, *args, **kwargs)
     return wrapped
+
+
+@authenticated
+def find_user_anon(session, username):
+    parsed = make_scrape_request(session, FRIENDS_URL)
+    sid = parsed.find('input', {'name': 'session1'})['value']
+    resp = session.post(USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
+    if resp.status_code == 200:
+        raise VoobyError('user not found')
+    return int(resp.headers['Location'].split('/')[-1])
+
+
+@authenticated
+def user_anon(session, user_id, ladder_ids=None):
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        user_id = find_user_anon(session, user_id)
+    parsed = make_scrape_request(session, '{}/{}/Ratings'.format(PROFILE_URL, user_id))
+    username = parsed.find('title').text
+    img = parsed.find('img', {'width': '200'})
+    tid = None
+    team = parsed.find('div', {'id': 'profile-team'})
+    if team:
+        tid = int(team.find('div', {'class': 'picture'}).find('a')['href'].split('/')[-1])
+    ladders = {}
+    for row in parsed.find(text='Ladder Statistics').find_next('table').find_all('tr')[1:]:
+        cols = row.find_all('td')
+        try:
+            name = cols[2].find('a').text
+            if name not in ladder_ids:
+                continue
+            ladders[lookup_ladder_id(name)] = {
+                'uid': user_id,
+                'rank': 1,
+                'rating': int(cols[3].text),
+                'wins': int(cols[4].text),
+                'losses': int(cols[5].text),
+                'streak': int(cols[6].find('font').text)
+            }
+        except ValueError:
+            pass
+    return {
+        'uid': user_id,
+        'display_name': username,
+        'name': img['alt'],
+        'imagelarge': img['src'] if img['src'].startswith('http') else '{}{}'.format(BASE_URL, img['src']),
+        'imagesmall': None,
+        'last_login': 0,
+        'account_created': 0,
+        'tid': tid,
+        'ladders': ladders
+    }
 
 
 @authenticated
@@ -356,6 +413,9 @@ def get_match(session, match_id):
     """Get match metadata."""
     url = '{}/{}'.format(MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
+    game = parsed.find('h3').text
+    if game != GAME_AOC:
+        raise ValueError('not an aoc match')
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
     colors = {}
@@ -424,7 +484,7 @@ def login(session):
 
 
 def get_session(key=None, username=None, password=None, cache=True,
-                cache_expiry=datetime.timedelta(days=7), cookie_path=COOKIE_PATH):
+                cache_expiry=datetime.timedelta(days=7), cookie_path=COOKIE_PATH, backend='memory'):
     """Get Voobly API session."""
     class VooblyAuth(AuthBase):  # pylint: disable=too-few-public-methods
         """Voobly authorization storage."""
@@ -442,7 +502,7 @@ def get_session(key=None, username=None, password=None, cache=True,
 
     session = requests.session()
     if cache:
-        session = requests_cache.core.CachedSession(expire_after=cache_expiry, backend='memory')
+        session = requests_cache.core.CachedSession(expire_after=cache_expiry, backend=backend)
     session.auth = VooblyAuth(key, username, password, cookie_path)
     if os.path.exists(cookie_path):
         _LOGGER.info("cookie found at: %s", cookie_path)
