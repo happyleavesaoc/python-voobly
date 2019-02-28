@@ -34,21 +34,28 @@ from tablib.core import UnsupportedFormat
 
 _LOGGER = logging.getLogger(__name__)
 COOKIE_PATH = './voobly_cookies.pickle'
-BASE_URL = 'https://www.voobly.com'
-VOOBLY_API_URL = BASE_URL + '/api/'
-LOGIN_PAGE = BASE_URL + '/login'
-LOGIN_URL = BASE_URL + '/login/auth'
-MATCH_URL = BASE_URL + '/match/view'
-LADDER_MATCHES_URL = BASE_URL + '/ladder/matches'
-LADDER_RANKING_URL = BASE_URL + '/ladder/ranking'
-PROFILE_URL = BASE_URL + '/profile/view'
+BASE_URL_GLOBAL = 'https://www.voobly.com'
+BASE_URL_CN = 'http://www.vooblycn.com'
+VERSION_GLOBAL = 'global'
+VERSION_CN = 'cn'
+BASE_URLS = {
+    VERSION_GLOBAL: BASE_URL_GLOBAL,
+    VERSION_CN: BASE_URL_CN
+}
+VOOBLY_API_URL = '/api/'
+LOGIN_PAGE = '/login'
+LOGIN_URL = '/login/auth'
+MATCH_URL = '/match/view'
+LADDER_MATCHES_URL = '/ladder/matches'
+LADDER_RANKING_URL = '/ladder/ranking'
+PROFILE_URL = '/profile/view'
 PROFILE_PATH = '/profile/view'
 FIND_USER_URL = 'finduser/'
 FIND_USERS_URL = 'findusers/'
 LOBBY_URL = 'lobbies/'
 LADDER_URL = 'ladder/'
 USER_URL = 'user/'
-FRIENDS_URL = BASE_URL + '/friends'
+FRIENDS_URL = '/friends'
 USER_SEARCH_URL = FRIENDS_URL + '/browse/Search/Search'
 VALIDATE_URL = 'validate'
 LADDER_RESULT_LIMIT = 40
@@ -108,7 +115,7 @@ def _make_request(session, url, argument=None, params=None, raw=False):
     params['key'] = session.auth.key
     try:
         if argument:
-            request_url = '{}{}{}'.format(VOOBLY_API_URL, url, argument)
+            request_url = '{}{}{}{}'.format(session.auth.base_url, VOOBLY_API_URL, url, argument)
         else:
             request_url = '{}{}'.format(VOOBLY_API_URL, url)
         resp = session.get(request_url, params=params)
@@ -268,7 +275,7 @@ def authenticated(function):
 
 @authenticated
 def find_user_anon(session, username):
-    parsed = make_scrape_request(session, FRIENDS_URL)
+    parsed = make_scrape_request(session, session.auth.base_url + FRIENDS_URL)
     sid = parsed.find('input', {'name': 'session1'})['value']
     resp = session.post(USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
     if resp.status_code == 200:
@@ -282,7 +289,7 @@ def user_anon(session, user_id, ladder_ids=None):
         user_id = int(user_id)
     except ValueError:
         user_id = find_user_anon(session, user_id)
-    parsed = make_scrape_request(session, '{}/{}/Ratings'.format(PROFILE_URL, user_id))
+    parsed = make_scrape_request(session, '{}{}/{}/Ratings'.format(session.auth.base_url, PROFILE_URL, user_id))
     username = parsed.find('title').text
     img = parsed.find('img', {'width': '200'})
     tid = None
@@ -310,7 +317,7 @@ def user_anon(session, user_id, ladder_ids=None):
         'uid': user_id,
         'display_name': username,
         'name': img['alt'],
-        'imagelarge': img['src'] if img['src'].startswith('http') else '{}{}'.format(BASE_URL, img['src']),
+        'imagelarge': img['src'] if img['src'].startswith('http') else '{}{}'.format(session.auth.base_url, img['src']),
         'imagesmall': None,
         'last_login': 0,
         'account_created': 0,
@@ -325,7 +332,7 @@ def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
     ranks = []
     done = False
     while not done and page_id < MAX_RANK_PAGE_ID:
-        url = '{}/{}/{}'.format(LADDER_RANKING_URL, lookup_ladder_id(ladder_id), page_id)
+        url = '{}{}/{}/{}'.format(session.auth.base_url, LADDER_RANKING_URL, lookup_ladder_id(ladder_id), page_id)
         parsed = make_scrape_request(session, url)
         for row in parsed.find(text='Ladder Players').find_next('table').find_all('tr')[1:]:
             cols = row.find_all('td')
@@ -357,7 +364,7 @@ def get_user_matches(session, user_id, from_timestamp=None):
     page_id = 0
     done = False
     while not done and page_id < MAX_MATCH_PAGE_ID:
-        url = '{}/{}/Matches/games/matches/user/{}/0/{}'.format(PROFILE_URL, user_id, user_id, page_id)
+        url = '{}{}/{}/Matches/games/matches/user/{}/0/{}'.format(session.auth.base_url, PROFILE_URL, user_id, user_id, page_id)
         parsed = make_scrape_request(session, url)
         for row in parsed.find('table').find_all('tr')[1:]:
             cols = row.find_all('td')
@@ -387,7 +394,7 @@ def get_ladder_matches(session, ladder_id, from_timestamp=None, limit=LADDER_MAT
     done = False
     i = 0
     while not done and page_id < MAX_LADDER_PAGE_ID:
-        url = '{}/{}/{}'.format(LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id)
+        url = '{}{}/{}/{}'.format(session.auth.base_url, LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id)
         parsed = make_scrape_request(session, url)
         for row in parsed.find(text='Recent Matches').find_next('table').find_all('tr')[1:]:
             cols = row.find_all('td')
@@ -411,7 +418,7 @@ def get_ladder_matches(session, ladder_id, from_timestamp=None, limit=LADDER_MAT
 @authenticated
 def get_match(session, match_id):
     """Get match metadata."""
-    url = '{}/{}'.format(MATCH_URL, match_id)
+    url = '{}{}/{}'.format(session.auth.base_url, MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
     game = parsed.find('h3').text
     if game != GAME_AOC:
@@ -461,7 +468,7 @@ def get_match(session, match_id):
 @authenticated
 def download_rec(session, rec_url, target_path):
     """Download and extract a recorded game."""
-    resp = session.get(BASE_URL + rec_url)
+    resp = session.get(session.auth.base_url + rec_url)
     downloaded = zipfile.ZipFile(io.BytesIO(resp.content))
     downloaded.extractall(target_path)
     return downloaded.namelist()[0] # never more than one rec
@@ -473,8 +480,8 @@ def login(session):
         raise VooblyError('must supply username and password')
     _LOGGER.info("logging in (no valid cookie found)")
     session.cookies.clear()
-    session.get(LOGIN_PAGE)
-    resp = session.post(LOGIN_URL, data={
+    session.get(session.auth.base_url + LOGIN_PAGE)
+    resp = session.post(session.auth.base_url + LOGIN_URL, data={
         'username': session.auth.username,
         'password': session.auth.password
     })
@@ -484,26 +491,31 @@ def login(session):
 
 
 def get_session(key=None, username=None, password=None, cache=True,
-                cache_expiry=datetime.timedelta(days=7), cookie_path=COOKIE_PATH, backend='memory'):
+                cache_expiry=datetime.timedelta(days=7), cookie_path=COOKIE_PATH, backend='memory',
+                version=VERSION_GLOBAL):
     """Get Voobly API session."""
     class VooblyAuth(AuthBase):  # pylint: disable=too-few-public-methods
         """Voobly authorization storage."""
 
-        def __init__(self, key, username, password, cookie_path):
+        def __init__(self, key, username, password, cookie_path, version):
             """Init."""
             self.key = key
             self.username = username
             self.password = password
             self.cookie_path = cookie_path
+            self.base_url = BASE_URLS[version]
 
         def __call__(self, r):
             """Call is no-op."""
             return r
 
+    if version not in BASE_URLS:
+        raise ValueError('unsupported voobly version')
+
     session = requests.session()
     if cache:
         session = requests_cache.core.CachedSession(expire_after=cache_expiry, backend=backend)
-    session.auth = VooblyAuth(key, username, password, cookie_path)
+    session.auth = VooblyAuth(key, username, password, cookie_path, version)
     if os.path.exists(cookie_path):
         _LOGGER.info("cookie found at: %s", cookie_path)
         session.cookies = _load_cookies(cookie_path)
