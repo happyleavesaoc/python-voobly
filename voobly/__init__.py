@@ -36,8 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 COOKIE_PATH = './voobly_cookies.pickle'
 BASE_URL_GLOBAL = 'https://www.voobly.com'
 BASE_URL_CN = 'http://www.vooblycn.com'
-VERSION_GLOBAL = 'global'
-VERSION_CN = 'cn'
+VERSION_GLOBAL = 'voobly'
+VERSION_CN = 'vooblycn'
 BASE_URLS = {
     VERSION_GLOBAL: BASE_URL_GLOBAL,
     VERSION_CN: BASE_URL_CN
@@ -64,10 +64,10 @@ SCRAPE_FETCH_ERROR = 'Page Access Failed'
 SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
 MATCH_NEW_RATE = 'New Rating:'
 MATCH_DATE_PLAYED = 'Date Played:'
-MAX_MATCH_PAGE_ID = 30
-MAX_LADDER_PAGE_ID = 60
-MAX_RANK_PAGE_ID = 30
-LADDER_MATCH_LIMIT = 10
+MAX_MATCH_PAGE_ID = 100
+MAX_LADDER_PAGE_ID = 100
+MAX_RANK_PAGE_ID = 100
+LADDER_MATCH_LIMIT = 1000
 GAME_AOC = 'Age of Empires II: The Conquerors'
 COLOR_MAPPING = {
     '#0054A6': 0,
@@ -277,7 +277,7 @@ def authenticated(function):
 def find_user_anon(session, username):
     parsed = make_scrape_request(session, session.auth.base_url + FRIENDS_URL)
     sid = parsed.find('input', {'name': 'session1'})['value']
-    resp = session.post(USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
+    resp = session.post(session.auth.base_url + USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
     if resp.status_code == 200:
         raise VoobyError('user not found')
     return int(resp.headers['Location'].split('/')[-1])
@@ -292,6 +292,7 @@ def user_anon(session, user_id, ladder_ids=None):
     parsed = make_scrape_request(session, '{}{}/{}/Ratings'.format(session.auth.base_url, PROFILE_URL, user_id))
     username = parsed.find('title').text
     img = parsed.find('img', {'width': '200'})
+    nation_id = parsed.find(text='Country:').find_next('div').find('img')['src'].split('/')[-1].replace('.png', '')
     tid = None
     team = parsed.find('div', {'id': 'profile-team'})
     if team:
@@ -322,6 +323,7 @@ def user_anon(session, user_id, ladder_ids=None):
         'last_login': 0,
         'account_created': 0,
         'tid': tid,
+        'nationid': nation_id,
         'ladders': ladders
     }
 
@@ -356,7 +358,7 @@ def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
 
 
 @authenticated
-def get_user_matches(session, user_id, from_timestamp=None):
+def get_user_matches(session, user_id, from_timestamp=None, limit=None):
     """Get recently played user matches."""
     if not from_timestamp:
         from_timestamp = datetime.datetime.now() - datetime.timedelta(days=1)
