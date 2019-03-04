@@ -373,15 +373,17 @@ def get_user_matches(session, user_id, from_timestamp=None, limit=None):
             played_at = dateparser.parse(cols[2].text)
             match_id = int(cols[5].find('a').text[1:])
             has_rec = cols[6].find('a').find('img')
-            if not has_rec:
-                continue
-            if played_at < from_timestamp:
+            if played_at < from_timestamp or (limit and len(matches) == limit):
                 done = True
                 break
+            if not has_rec:
+                continue
             matches.append({
                 'timestamp': played_at,
                 'match_id': match_id
             })
+        if not matches:
+            break
         page_id += 1
     return matches
 
