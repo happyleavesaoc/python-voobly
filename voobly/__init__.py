@@ -430,16 +430,23 @@ def get_match(session, match_id):
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
     colors = {}
+    player_count = int(parsed.find('td', text='Players:').find_next('td').text)
     for div in parsed.find_all('div', style=True):
-        if div['style'].startswith('background-color:'):
-            name = div.find_next('a', href=re.compile(PROFILE_PATH)).text
-            color = div['style'].split(':')[1].split(';')[0].strip()
-            colors[name] = color
+        if not div['style'].startswith('background-color:'):
+            continue
+        if len(players) == player_count:
+            break
+        username_elem = div.find_next('a', href=re.compile(PROFILE_PATH))
+        username = username_elem.text
+        color = div['style'].split(':')[1].split(';')[0].strip()
+        colors[username] = color
 
-    for i, rec in enumerate(parsed.find_all('a', href=re.compile('^/files/view'))):
-        player_name = rec.find('b').text
-        username = player_name.split(']')[-1]
-        clan = player_name.split(']')[0][1:] if player_name.find(']') > 0 else None
+        rec = None
+        for dl_elem in parsed.find_all('a', href=re.compile('^/files/view')):
+            rec_name = dl_elem.find('b', text=re.compile(username+'$'))
+            if rec_name:
+                rec = rec_name.parent
+
         user = parsed.find('a', text=username)
         if not user:
             # bugged match page
@@ -455,10 +462,9 @@ def get_match(session, match_id):
             rate_after = int(children[5].text)
             rate_before = rate_after - int(children[3].text)
         players.append({
-            'url': rec['href'],
+            'url': rec['href'] if rec else None,
             'id': user_id,
             'username': username,
-            'clan': clan,
             'color_id': COLOR_MAPPING.get(colors[username]),
             'rate_before': rate_before,
             'rate_after': rate_after
