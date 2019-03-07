@@ -46,6 +46,7 @@ VOOBLY_API_URL = '/api/'
 LOGIN_PAGE = '/login'
 LOGIN_URL = '/login/auth'
 MATCH_URL = '/match/view'
+TEAM_MATCHES_URL = 'teammatches/index/games/matches/team'
 LADDER_MATCHES_URL = '/ladder/matches'
 LADDER_RANKING_URL = '/ladder/ranking'
 PROFILE_URL = '/profile/view'
@@ -358,7 +359,20 @@ def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
 
 
 @authenticated
+def get_clan_matches(session, subdomain, clan_id, from_timestamp=None, limit=None):
+    """Get recent matches by clan."""
+    return get_recent_matches(session, 'https://{}.voobly.com/{}/{}/0'.format(
+        subdomain, TEAM_MATCHES_URL, clan_id), from_timestamp, limit)
+
+
+@authenticated
 def get_user_matches(session, user_id, from_timestamp=None, limit=None):
+    """Get recent matches by user."""
+    return get_recent_matches(session, '{}{}/{}/Matches/games/matches/user/{}/0'.format(
+        session.auth.base_url, PROFILE_URL, user_id, user_id), from_timestamp, limit)
+
+
+def get_recent_matches(session, init_url, from_timestamp, limit):
     """Get recently played user matches."""
     if not from_timestamp:
         from_timestamp = datetime.datetime.now() - datetime.timedelta(days=1)
@@ -366,7 +380,7 @@ def get_user_matches(session, user_id, from_timestamp=None, limit=None):
     page_id = 0
     done = False
     while not done and page_id < MAX_MATCH_PAGE_ID:
-        url = '{}{}/{}/Matches/games/matches/user/{}/0/{}'.format(session.auth.base_url, PROFILE_URL, user_id, user_id, page_id)
+        url = '{}/{}'.format(init_url, page_id)
         parsed = make_scrape_request(session, url)
         for row in parsed.find('table').find_all('tr')[1:]:
             cols = row.find_all('td')
