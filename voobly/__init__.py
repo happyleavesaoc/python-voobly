@@ -121,7 +121,7 @@ def _make_request(session, url, argument=None, params=None, raw=False):
             request_url = '{}{}'.format(VOOBLY_API_URL, url)
         resp = session.get(request_url, params=params)
     except RequestException:
-        raise VooblyError('connection problem')
+        raise VooblyError('failed to connect')
     if resp.text == 'bad-key':
         raise VooblyError('bad api key')
     elif resp.text == 'too-busy':
@@ -138,7 +138,10 @@ def _make_request(session, url, argument=None, params=None, raw=False):
 
 def make_scrape_request(session, url, mode='get', data=None):
     """Make a request to URL."""
-    html = session.request(mode, url, data=data)
+    try:
+        html = session.request(mode, url, data=data)
+    except RequestException:
+        raise VooblyError('failed to connect')
     if SCRAPE_FETCH_ERROR in html.text:
         raise VooblyError('not logged in')
     if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
