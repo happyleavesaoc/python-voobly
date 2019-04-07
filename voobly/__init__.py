@@ -283,8 +283,11 @@ def find_user_anon(session, username):
     sid = parsed.find('input', {'name': 'session1'})['value']
     resp = session.post(session.auth.base_url + USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
     if resp.status_code == 200:
-        raise VoobyError('user not found')
-    return int(resp.headers['Location'].split('/')[-1])
+        raise VooblyError('user not found')
+    try:
+        return int(resp.headers['Location'].split('/')[-1])
+    except ValueError:
+        raise VooblyError('user not found')
 
 
 @authenticated
