@@ -495,7 +495,10 @@ def get_match(session, match_id):
 @authenticated
 def download_rec(session, rec_url, target_path):
     """Download and extract a recorded game."""
-    resp = session.get(session.auth.base_url + rec_url)
+    try:
+        resp = session.get(session.auth.base_url + rec_url)
+    except RequestException:
+        raise VooblyError('failed to connect for download')
     downloaded = zipfile.ZipFile(io.BytesIO(resp.content))
     downloaded.extractall(target_path)
     return downloaded.namelist()[0] # never more than one rec
@@ -507,11 +510,14 @@ def login(session):
         raise VooblyError('must supply username and password')
     _LOGGER.info("logging in (no valid cookie found)")
     session.cookies.clear()
-    session.get(session.auth.base_url + LOGIN_PAGE)
-    resp = session.post(session.auth.base_url + LOGIN_URL, data={
-        'username': session.auth.username,
-        'password': session.auth.password
-    })
+    try:
+        session.get(session.auth.base_url + LOGIN_PAGE)
+        resp = session.post(session.auth.base_url + LOGIN_URL, data={
+            'username': session.auth.username,
+            'password': session.auth.password
+        })
+    except RequestException:
+        raise VooblyError('failed to connect for login')
     if resp.status_code != 200:
         raise VooblyError('failed to login')
     _save_cookies(session.cookies, session.auth.cookie_path)
