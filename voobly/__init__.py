@@ -502,8 +502,11 @@ def download_rec(session, rec_url, target_path):
         resp = session.get(session.auth.base_url + rec_url)
     except RequestException:
         raise VooblyError('failed to connect for download')
-    downloaded = zipfile.ZipFile(io.BytesIO(resp.content))
-    downloaded.extractall(target_path)
+    try:
+        downloaded = zipfile.ZipFile(io.BytesIO(resp.content))
+        downloaded.extractall(target_path)
+    except zipfile.BadZipFile:
+        raise VooblyError('invalid zip file')
     return downloaded.namelist()[0] # never more than one rec
 
 
