@@ -478,7 +478,7 @@ def get_match(session, match_id):
         if str(children[0]).strip() == MATCH_NEW_RATE:
             rate_after = int(children[1].text)
             rate_before = rate_after - int(children[3].text)
-        elif str(children[4]).strip() == MATCH_NEW_RATE:
+        elif len(children) > 5 and str(children[4]).strip() == MATCH_NEW_RATE:
             rate_after = int(children[5].text)
             rate_before = rate_after - int(children[3].text)
         players.append({
