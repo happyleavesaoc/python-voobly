@@ -472,7 +472,10 @@ def get_match(session, match_id):
             # bugged match page
             continue
         user_id = int(user['href'].split('/')[-1])
-        children = list(user.find_next('span').children)
+        span = user.find_next('span')
+        if not span:
+            continue
+        children = list(span.children)
         rate_after = None
         rate_before = None
         if str(children[0]).strip() == MATCH_NEW_RATE:
