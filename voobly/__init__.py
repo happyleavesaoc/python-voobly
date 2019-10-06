@@ -146,7 +146,7 @@ def make_scrape_request(session, url, mode='get', data=None):
         raise VooblyError('not logged in')
     if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
         raise VooblyError('page not found')
-    return bs4.BeautifulSoup(html.text, features='lxml')
+    return bs4.BeautifulSoup(html.text, features='html.parser')
 
 
 def lookup_ladder_id(name):
