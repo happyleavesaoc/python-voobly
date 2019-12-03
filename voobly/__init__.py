@@ -70,6 +70,7 @@ MAX_LADDER_PAGE_ID = 100
 MAX_RANK_PAGE_ID = 100
 LADDER_MATCH_LIMIT = 1000
 GAME_AOC = 'Age of Empires II: The Conquerors'
+REQ_TIMEOUT = 5
 COLOR_MAPPING = {
     '#0054A6': 0,
     '#FF0000': 1,
@@ -119,7 +120,7 @@ def _make_request(session, url, argument=None, params=None, raw=False):
             request_url = '{}{}{}{}'.format(session.auth.base_url, VOOBLY_API_URL, url, argument)
         else:
             request_url = '{}{}'.format(VOOBLY_API_URL, url)
-        resp = session.get(request_url, params=params)
+        resp = session.get(request_url, params=params, timeout=REQ_TIMEOUT)
     except RequestException:
         raise VooblyError('failed to connect')
     if resp.text == 'bad-key':
@@ -502,7 +503,7 @@ def get_match(session, match_id):
 def download_rec(session, rec_url, target_path):
     """Download and extract a recorded game."""
     try:
-        resp = session.get(session.auth.base_url + rec_url)
+        resp = session.get(session.auth.base_url + rec_url, timeout=REQ_TIMEOUT)
     except RequestException:
         raise VooblyError('failed to connect for download')
     try:
@@ -520,7 +521,7 @@ def login(session):
     _LOGGER.info("logging in (no valid cookie found)")
     session.cookies.clear()
     try:
-        session.get(session.auth.base_url + LOGIN_PAGE)
+        session.get(session.auth.base_url + LOGIN_PAGE, timeout=REQ_TIMEOUT)
         resp = session.post(session.auth.base_url + LOGIN_URL, data={
             'username': session.auth.username,
             'password': session.auth.password

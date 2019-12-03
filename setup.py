@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='voobly',
-    version='1.2.7',
+    version='1.2.9',
     description='Python 3 API for Voobly, the gaming platform.',
     url='https://github.com/happyleavesaoc/python-voobly/',
     license='MIT',
