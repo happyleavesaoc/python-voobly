@@ -71,15 +71,11 @@ ladders = voobly.ladders(session, 13)  # returns list
 
 Exceptions raise a `VooblyError`, including connectivity issues, bad API key, and malformed results.
 
-## Caching
-
-To reduce load on the Voobly API, this module includes automatic HTTP request caching. The `cache_expiry` parameter of `get_session` determines how long requests are cached. This caching mechanism can be disabled if an external cache is implemented. Please use a maximum `cache_expiry` for your usecase. The default `cache_expiry` is 7 days.
-
 ## Development
 
 ### Lint
 
-`tox`
+`pylint voobly`
 
 ### Release
 
@@ -87,7 +83,7 @@ To reduce load on the Voobly API, this module includes automatic HTTP request ca
 
 ### Contributions
 
-Contributions are welcome. Please submit a PR that passes `tox`.
+Contributions are welcome. Please submit a PR that passes linting.
 
 ## Disclaimer
 Not affiliated with Voobly.
