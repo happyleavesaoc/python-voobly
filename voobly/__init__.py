@@ -13,16 +13,16 @@ Please note that every attempt has been made to avoid scraping, to include:
 
 import datetime
 import io
-import json
 import logging
+import json
 import os
-import pkg_resources
 import pickle
 import re
 import zipfile
 
 import bs4
 import dateparser
+import pkg_resources
 import requests
 import tablib
 from requests.auth import AuthBase
@@ -82,7 +82,9 @@ COLOR_MAPPING = {
 
 def get_metadata_path(name):
     """Get reference metadata file path."""
-    return pkg_resources.resource_filename('voobly', os.path.join(METADATA_PATH, '{}.json'.format(name)))
+    return pkg_resources.resource_filename(
+        'voobly', os.path.join(METADATA_PATH, '{}.json'.format(name))
+    )
 
 
 GAMES = json.loads(open(get_metadata_path('games')).read())
@@ -91,8 +93,6 @@ LADDERS = json.loads(open(get_metadata_path('ladders')).read())
 
 class VooblyError(Exception):
     """Voobly error."""
-
-    pass
 
 
 def _save_cookies(requests_cookiejar, filename):
@@ -122,9 +122,9 @@ def _make_request(session, url, argument=None, params=None, raw=False):
         raise VooblyError('failed to connect')
     if resp.text == 'bad-key':
         raise VooblyError('bad api key')
-    elif resp.text == 'too-busy':
+    if resp.text == 'too-busy':
         raise VooblyError('service too busy')
-    elif not resp.text:
+    if not resp.text:
         raise VooblyError('no data returned')
     if raw:
         return resp.text
@@ -276,9 +276,12 @@ def authenticated(function):
 
 @authenticated
 def find_user_anon(session, username):
+    """Find a user."""
     parsed = make_scrape_request(session, session.auth.base_url + FRIENDS_URL)
     sid = parsed.find('input', {'name': 'session1'})['value']
-    resp = session.post(session.auth.base_url + USER_SEARCH_URL, data={'query': username, 'session1': sid}, allow_redirects=False)
+    resp = session.post(session.auth.base_url + USER_SEARCH_URL, data={
+        'query': username, 'session1': sid
+    }, allow_redirects=False)
     if resp.status_code == 200:
         raise VooblyError('user not found')
     try:
@@ -289,26 +292,30 @@ def find_user_anon(session, username):
 
 @authenticated
 def user_anon(session, user_id, ladder_ids=None):
+    """Get user data."""
     try:
         user_id = int(user_id)
     except ValueError:
         user_id = find_user_anon(session, user_id)
-    parsed = make_scrape_request(session, '{}{}/{}/Ratings'.format(session.auth.base_url, PROFILE_URL, user_id))
+    parsed = make_scrape_request(session, '{}{}/{}/Ratings'.format(
+        session.auth.base_url, PROFILE_URL, user_id
+    ))
     username = parsed.find('title').text
     img = parsed.find('img', {'width': '200'})
-    nation_id = parsed.find(text='Country:').find_next('div').find('img')['src'].split('/')[-1].replace('.png', '')
+    nation_id = parsed.find(text='Country:').find_next('div').find('img')['src'] \
+        .split('/')[-1].replace('.png', '')
     tid = None
     team = parsed.find('div', {'id': 'profile-team'})
     if team:
         tid = int(team.find('div', {'class': 'picture'}).find('a')['href'].split('/')[-1])
-    ladders = {}
+    ladder_store = {}
     for row in parsed.find(text='Ladder Statistics').find_next('table').find_all('tr')[1:]:
         cols = row.find_all('td')
         try:
             name = cols[2].find('a').text
             if name not in ladder_ids:
                 continue
-            ladders[lookup_ladder_id(name)] = {
+            ladder_store[lookup_ladder_id(name)] = {
                 'uid': user_id,
                 'rank': 1,
                 'rating': int(cols[3].text),
@@ -318,34 +325,39 @@ def user_anon(session, user_id, ladder_ids=None):
             }
         except ValueError:
             pass
+    image_large = img['src'] if img['src'].startswith('http') \
+        else '{}{}'.format(session.auth.base_url, img['src'])
     return {
         'uid': user_id,
         'display_name': username,
         'name': img['alt'],
-        'imagelarge': img['src'] if img['src'].startswith('http') else '{}{}'.format(session.auth.base_url, img['src']),
+        'imagelarge': image_large,
         'imagesmall': None,
         'last_login': 0,
         'account_created': 0,
         'tid': tid,
         'nationid': nation_id,
-        'ladders': ladders
+        'ladders': ladder_store
     }
 
 
 @authenticated
 def get_ladder_anon(session, ladder_id, start=0, limit=LADDER_RESULT_LIMIT):
+    """Get ladder data."""
     page_id = 0
     ranks = []
     done = False
     while not done and page_id < MAX_RANK_PAGE_ID:
-        url = '{}{}/{}/{}'.format(session.auth.base_url, LADDER_RANKING_URL, lookup_ladder_id(ladder_id), page_id)
+        url = '{}{}/{}/{}'.format(
+            session.auth.base_url, LADDER_RANKING_URL, lookup_ladder_id(ladder_id), page_id
+        )
         parsed = make_scrape_request(session, url)
         for row in parsed.find(text='Ladder Players').find_next('table').find_all('tr')[1:]:
             cols = row.find_all('td')
             rank = int(cols[0].text)
             if rank < start:
                 continue
-            elif rank > start + limit:
+            if rank > start + limit:
                 done = True
                 break
             ranks.append({
@@ -371,8 +383,11 @@ def get_clan_matches(session, subdomain, clan_id, from_timestamp=None, limit=Non
 @authenticated
 def get_user_matches(session, user_id, from_timestamp=None, limit=None):
     """Get recent matches by user."""
-    return get_recent_matches(session, '{}{}/{}/Matches/games/matches/user/{}/0'.format(
-        session.auth.base_url, PROFILE_URL, user_id, user_id), from_timestamp, limit)
+    return get_recent_matches(
+        session, '{base}{profile}/{id}/Matches/games/matches/user/{id}/0'.format(
+            base=session.auth.base_url, profile=PROFILE_URL, id=user_id),
+        from_timestamp, limit
+    )
 
 
 def get_recent_matches(session, init_url, from_timestamp, limit):
@@ -415,7 +430,9 @@ def get_ladder_matches(session, ladder_id, from_timestamp=None, limit=LADDER_MAT
     done = False
     i = 0
     while not done and page_id < MAX_LADDER_PAGE_ID:
-        url = '{}{}/{}/{}'.format(session.auth.base_url, LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id)
+        url = '{}{}/{}/{}'.format(
+            session.auth.base_url, LADDER_MATCHES_URL, lookup_ladder_id(ladder_id), page_id
+        )
         parsed = make_scrape_request(session, url)
         for row in parsed.find(text='Recent Matches').find_next('table').find_all('tr')[1:]:
             cols = row.find_all('td')
@@ -437,7 +454,7 @@ def get_ladder_matches(session, ladder_id, from_timestamp=None, limit=LADDER_MAT
 
 
 @authenticated
-def get_match(session, match_id):
+def get_match(session, match_id): # pylint: disable=too-many-locals
     """Get match metadata."""
     url = '{}{}/{}'.format(session.auth.base_url, MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
@@ -464,12 +481,12 @@ def get_match(session, match_id):
             if rec_name:
                 rec = rec_name.parent
 
-        user = parsed.find('a', text=username)
-        if not user:
+        user_elem = parsed.find('a', text=username)
+        if not user_elem:
             # bugged match page
             continue
-        user_id = int(user['href'].split('/')[-1])
-        span = user.find_next('span')
+        user_id = int(user_elem['href'].split('/')[-1])
+        span = user_elem.find_next('span')
         if not span:
             continue
         children = list(span.children)
