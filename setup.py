@@ -17,7 +17,6 @@ setup(
         'beautifulsoup4>=4.6.3',
         'dateparser>=0.7.0',
         'requests>=2.20.0',
-        'requests-cache>=0.4.13',
         'tablib>=0.12.1'
     ],
     classifiers=[

@@ -7,7 +7,6 @@ An API key granted by Voobly is also requred.
 
 Please note that every attempt has been made to avoid scraping, to include:
     - caching reference metadata
-    - caching requests
     - limiting scraping to essential functionality
     - fully supporting external API
 """
@@ -25,7 +24,6 @@ import zipfile
 import bs4
 import dateparser
 import requests
-import requests_cache
 import tablib
 from requests.auth import AuthBase
 from requests.exceptions import RequestException
@@ -33,7 +31,6 @@ from tablib.core import UnsupportedFormat
 
 
 _LOGGER = logging.getLogger(__name__)
-COOKIE_PATH = './voobly_cookies.pickle'
 BASE_URL_GLOBAL = 'https://www.voobly.com'
 BASE_URL_CN = 'http://www.vooblycn.com'
 VERSION_GLOBAL = 'voobly'
@@ -140,7 +137,7 @@ def _make_request(session, url, argument=None, params=None, raw=False):
 def make_scrape_request(session, url, mode='get', data=None):
     """Make a request to URL."""
     try:
-        html = session.request(mode, url, data=data)
+        html = session.request(mode, url, data=data, timeout=REQ_TIMEOUT)
     except RequestException:
         raise VooblyError('failed to connect')
     if SCRAPE_FETCH_ERROR in html.text:
@@ -271,10 +268,9 @@ def authenticated(function):
         try:
             return function(session, *args, **kwargs)
         except VooblyError:
-            with session.cache_disabled():
-                _LOGGER.info("attempted to access page before login")
-                login(session)
-                return function(session, *args, **kwargs)
+            _LOGGER.info("attempted to access page before login")
+            login(session)
+            return function(session, *args, **kwargs)
     return wrapped
 
 
@@ -533,9 +529,7 @@ def login(session):
     _save_cookies(session.cookies, session.auth.cookie_path)
 
 
-def get_session(key=None, username=None, password=None, cache=True,
-                cache_expiry=datetime.timedelta(days=7), cookie_path=COOKIE_PATH, backend='memory',
-                version=VERSION_GLOBAL):
+def get_session(key=None, username=None, password=None, cookie_path=None, version=VERSION_GLOBAL):
     """Get Voobly API session."""
     class VooblyAuth(AuthBase):  # pylint: disable=too-few-public-methods
         """Voobly authorization storage."""
@@ -555,9 +549,9 @@ def get_session(key=None, username=None, password=None, cache=True,
     if version not in BASE_URLS:
         raise ValueError('unsupported voobly version')
 
+    if not cookie_path:
+        cookie_path = './{}_cookies.pickle'.format(version)
     session = requests.session()
-    if cache:
-        session = requests_cache.core.CachedSession(expire_after=cache_expiry, backend=backend)
     session.auth = VooblyAuth(key, username, password, cookie_path, version)
     if os.path.exists(cookie_path):
         _LOGGER.info("cookie found at: %s", cookie_path)
