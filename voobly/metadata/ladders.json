@@ -1,23 +1,43 @@
 {
-  "Arcade Scenarios": {
-    "id": 319,
-    "slug": "Arcade-Scenarios",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Arcade-Scenarios"
+  "Random Map": {
+    "id": 139,
+    "slug": "Random-Map",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-Age-of-Kings/Random-Map"
   },
-  "CAL - Sheep vs Wolf II": {
-    "id": 305,
-    "slug": "CAL-Sheep-vs-Wolf-II",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/CAL-Sheep-vs-Wolf-II"
+  "Death Match": {
+    "id": 140,
+    "slug": "Death-Match",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-Age-of-Kings/Death-Match"
   },
-  "CAL - CBA/Hero TTM": {
-    "id": 317,
-    "slug": "CAL-CBA-Hero-TTM",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/CAL-CBA-Hero-TTM"
+  "Castle Blood": {
+    "id": 141,
+    "slug": "Castle-Blood",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-Age-of-Kings/Castle-Blood"
   },
-  "Match Stats Only (CSA)": {
+  "Custom Scenario": {
+    "id": 142,
+    "slug": "Custom-Scenario",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-Age-of-Kings/Custom-Scenario"
+  },
+  "Match Stats Only": {
+    "id": 171,
+    "slug": "Match-Stats",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Match-Stats"
+  },
+  "Overall": {
+    "id": 54,
+    "slug": "Overall",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-Age-of-Kings/Overall"
+  },
+  "Match Stats Only": {
+    "id": 171,
+    "slug": "Match-Stats",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Match-Stats"
+  },
+  "Match Stats Only (Casual)": {
     "id": 302,
-    "slug": "Match-Stats-CSA",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Match-Stats-CSA"
+    "slug": "Match-Stats-Casual",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Match-Stats-Casual"
   },
   "RM - Beginners": {
     "id": 101,
@@ -68,11 +88,6 @@
     "id": 153,
     "slug": "Age-of-Chivalry",
     "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Age-of-Chivalry"
-  },
-  "Match Stats Only": {
-    "id": 171,
-    "slug": "Match-Stats",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/Match-Stats"
   },
   "CS - CBA": {
     "id": 267,
@@ -134,16 +149,6 @@
     "slug": "AoKH",
     "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoKH"
   },
-  "AoAK RM - 1v1": {
-    "id": 243,
-    "slug": "AoAK-RM-1v1",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoAK-RM-1v1"
-  },
-  "AoAK RM - TG": {
-    "id": 244,
-    "slug": "AoAK-RM-TG",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoAK-RM-TG"
-  },
   "AoFE RM - 1v1": {
     "id": 145,
     "slug": "AoFE-RM-1v1",
@@ -159,13 +164,8 @@
     "slug": "AoFE-CB",
     "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoFE-CB"
   },
-  "AoFE CS": {
-    "id": 150,
-    "slug": "AoFE-CS",
-    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoFE-CS"
-  },
   "AoFE Overall": {
-    "id": 123807394,
+    "id": 144,
     "slug": "AoFE-Overall",
     "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/AoFE-Overall"
   },
@@ -178,6 +178,11 @@
     "id": 221,
     "slug": "RTSL",
     "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/RTSL"
+  },
+  "TIW - Ladder": {
+    "id": 227,
+    "slug": "TIW",
+    "url": "https://voobly.com/ladder/view/Age-of-Empires-II-The-Conquerors/TIW"
   },
   "Eycofcu Ladder": {
     "id": 274,

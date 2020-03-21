@@ -67,6 +67,8 @@ MAX_LADDER_PAGE_ID = 100
 MAX_RANK_PAGE_ID = 100
 LADDER_MATCH_LIMIT = 1000
 GAME_AOC = 'Age of Empires II: The Conquerors'
+GAME_AOK = 'Age of Empires II: Age of Kings'
+VALID_GAMES = [GAME_AOC, GAME_AOK]
 REQ_TIMEOUT = 5
 COLOR_MAPPING = {
     '#0054A6': 0,
@@ -459,8 +461,8 @@ def get_match(session, match_id): # pylint: disable=too-many-locals
     url = '{}{}/{}'.format(session.auth.base_url, MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
     game = parsed.find('h3').text
-    if game != GAME_AOC:
-        raise ValueError('not an aoc match')
+    if game not in VALID_GAMES:
+        raise ValueError('not an aoc/aok match')
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
     colors = {}
