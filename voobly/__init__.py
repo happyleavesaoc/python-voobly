@@ -280,9 +280,13 @@ def authenticated(function):
 def find_user_anon(session, username):
     """Find a user."""
     parsed = make_scrape_request(session, session.auth.base_url + FRIENDS_URL)
-    sid = parsed.find('input', {'name': 'session1'})['value']
+    if not parsed:
+        raise VooblyError('user not found')
+    sid = parsed.find('input', {'name': 'session1'})
+    if not sid:
+        raise VooblyError('user not found')
     resp = session.post(session.auth.base_url + USER_SEARCH_URL, data={
-        'query': username, 'session1': sid
+        'query': username, 'session1': sid['value']
     }, allow_redirects=False)
     if resp.status_code == 200:
         raise VooblyError('user not found')
@@ -461,11 +465,12 @@ def get_match(session, match_id): # pylint: disable=too-many-locals
     url = '{}{}/{}'.format(session.auth.base_url, MATCH_URL, match_id)
     parsed = make_scrape_request(session, url)
     game = parsed.find('h3').text
-    if game not in VALID_GAMES:
+    if not game or game not in VALID_GAMES:
         raise ValueError('not an aoc/aok match')
     date_played = parsed.find(text=MATCH_DATE_PLAYED).find_next('td').text
     players = []
     colors = {}
+    game_mod = parsed.find('td', text='Game Mod:').find_next('td').text
     player_count = int(parsed.find('td', text='Players:').find_next('td').text)
     for div in parsed.find_all('div', style=True):
         if not div['style'].startswith('background-color:'):
@@ -510,6 +515,7 @@ def get_match(session, match_id): # pylint: disable=too-many-locals
         })
     return {
         'timestamp': dateparser.parse(date_played),
+        'metadata': game_mod,
         'players': players
     }
 
