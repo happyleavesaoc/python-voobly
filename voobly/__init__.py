@@ -18,6 +18,7 @@ import json
 import os
 import pickle
 import re
+import time
 import zipfile
 
 import bs4
@@ -60,6 +61,7 @@ LADDER_RESULT_LIMIT = 40
 METADATA_PATH = 'metadata'
 SCRAPE_FETCH_ERROR = 'Page Access Failed'
 SCRAPE_PAGE_NOT_FOUND = 'Page Not Found'
+SCRAPE_SERVER_ERROR = 'Something bad happened'
 MATCH_NEW_RATE = 'New Rating:'
 MATCH_DATE_PLAYED = 'Date Played:'
 MAX_MATCH_PAGE_ID = 100
@@ -69,7 +71,8 @@ LADDER_MATCH_LIMIT = 1000
 GAME_AOC = 'Age of Empires II: The Conquerors'
 GAME_AOK = 'Age of Empires II: Age of Kings'
 VALID_GAMES = [GAME_AOC, GAME_AOK]
-REQ_TIMEOUT = 5
+REQ_TIMEOUT = 20
+MAX_RETRIES = 5
 COLOR_MAPPING = {
     '#0054A6': 0,
     '#FF0000': 1,
@@ -136,12 +139,18 @@ def _make_request(session, url, argument=None, params=None, raw=False):
         raise VooblyError('unexpected error {}'.format(resp.text))
 
 
-def make_scrape_request(session, url, mode='get', data=None):
+def make_scrape_request(session, url, mode='get', data=None, retries=MAX_RETRIES):
     """Make a request to URL."""
     try:
         html = session.request(mode, url, data=data, timeout=REQ_TIMEOUT)
     except RequestException:
         raise VooblyError('failed to connect')
+    if SCRAPE_SERVER_ERROR in html.text:
+        if retries > 0:
+            _LOGGER.warning("retrying request (%d/%d)", MAX_RETRIES - retries + 1, MAX_RETRIES)
+            time.sleep(MAX_RETRIES - retries + 1)
+            return make_scrape_request(session, url, mode, data, retries=retries - 1)
+        raise VooblyError('too busy')
     if SCRAPE_FETCH_ERROR in html.text:
         raise VooblyError('not logged in')
     if html.status_code != 200 or SCRAPE_PAGE_NOT_FOUND in html.text:
